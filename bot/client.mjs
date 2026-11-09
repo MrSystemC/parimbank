@@ -52,13 +52,15 @@ export function createClients(config, fetchImpl = fetch) {
   const requestSignal = (signal, timeout) => signal ? AbortSignal.any([signal, AbortSignal.timeout(timeout)]) : AbortSignal.timeout(timeout);
   return {
     async telegram(method, payload = {}, signal) {
-      if (!/^(getMe|getWebhookInfo|setMyCommands|getUpdates|sendMessage|answerCallbackQuery)$/.test(method)) throw new Error('Unsupported Telegram method.');
+      if (!/^(getMe|getWebhookInfo|setMyCommands|setWebhook|getUpdates|sendMessage|answerCallbackQuery)$/.test(method)) throw new Error('Unsupported Telegram method.');
       let response, json;
       try {
-        response = await fetchImpl(`https://api.telegram.org/bot${config.token}/${method}`, { method: 'POST', redirect: 'error', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: requestSignal(signal, method === 'getUpdates' ? 40000 : 20000) });
+        response = await fetchImpl(`https://api.telegram.org/bot${config.token}/${method}`, { method: 'POST', redirect: 'manual', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: requestSignal(signal, method === 'getUpdates' ? 40000 : 20000) });
+        if (response.status >= 300 && response.status < 400) { void response.body?.cancel().catch(() => {}); throw new ServiceError('telegram', 502); }
         json = await boundedJson(response);
-      } catch {
+      } catch (error) {
         if (signal?.aborted) throw signal.reason || new DOMException('Aborted', 'AbortError');
+        if (error instanceof ServiceError) throw error;
         throw new ServiceError('telegram', response?.ok ? 502 : response?.status || 0);
       }
       if (!response.ok || json?.ok !== true) throw new ServiceError('telegram', Number(json?.error_code) || response.status, { retryAfter: json?.parameters?.retry_after });
@@ -68,10 +70,12 @@ export function createClients(config, fetchImpl = fetch) {
       if (!/^\d{1,16}$/.test(telegramId) || !['status', 'claimLink', 'state', 'prepareBuy', 'confirmBuy', 'requestCoins'].includes(kind)) throw new Error('Invalid bridge request.');
       let response, json;
       try {
-        response = await fetchImpl(`${config.siteOrigin}/api/telegram/bridge`, { method: 'POST', redirect: 'error', headers: { 'Content-Type': 'application/json', 'OAI-Sites-Authorization': `Bearer ${config.serviceToken}`, Authorization: `Bearer ${config.bridgeSecret}` }, body: JSON.stringify({ ...payload, telegramId, kind, chatType: 'private' }), signal: requestSignal(signal, 25000) });
+        response = await fetchImpl(`${config.siteOrigin}/api/telegram/bridge`, { method: 'POST', redirect: 'manual', headers: { 'Content-Type': 'application/json', 'OAI-Sites-Authorization': `Bearer ${config.serviceToken}`, Authorization: `Bearer ${config.bridgeSecret}` }, body: JSON.stringify({ ...payload, telegramId, kind, chatType: 'private' }), signal: requestSignal(signal, 25000) });
+        if (response.status >= 300 && response.status < 400) { void response.body?.cancel().catch(() => {}); throw new ServiceError('site', 502); }
         json = await boundedJson(response);
-      } catch {
+      } catch (error) {
         if (signal?.aborted) throw signal.reason || new DOMException('Aborted', 'AbortError');
+        if (error instanceof ServiceError) throw error;
         throw new ServiceError('site', response?.ok ? 502 : response?.status || 0);
       }
       if (!response.ok) throw new ServiceError('site', response.status, { userMessage: typeof json?.error === 'string' ? json.error : '' });

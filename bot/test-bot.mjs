@@ -34,7 +34,7 @@ assert.equal(requests[0].url, `https://api.telegram.org/bot${config.token}/getMe
 assert.equal(requests[1].url, 'https://site.example/api/telegram/bridge');
 assert.equal(requests[1].headers.Authorization, `Bearer ${config.bridgeSecret}`); assert.equal(requests[1].headers['OAI-Sites-Authorization'], `Bearer ${config.serviceToken}`);
 assert.deepEqual(requests[1].body, { kind: 'status', telegramId: '123', chatType: 'private' });
-assert(requests.every(request => request.redirect === 'error'));
+assert(requests.every(request => request.redirect === 'manual'));
 await assert.rejects(() => clients.telegram('deleteWebhook')); await assert.rejects(() => clients.bridge('https://other.example', 'state'));
 const failed = createClients(config, async () => { throw new Error(`Fetch failed at https://api.telegram.org/bot${config.token}/getUpdates`); });
 await assert.rejects(() => failed.telegram('getUpdates'), error => error instanceof ServiceError && !error.message.includes(config.token));
@@ -42,6 +42,11 @@ const throttled = createClients(config, async () => Response.json({ ok: false, e
 await assert.rejects(() => throttled.telegram('getUpdates'), error => error.retryAfter === 12 && error.transient);
 const redirected = createClients(config, async () => { throw new TypeError('redirect count exceeded'); });
 await assert.rejects(() => redirected.bridge('123', 'state'), error => error instanceof ServiceError && error.status === 0);
+let redirectRequests = 0;
+const refuseRedirects = createClients(config, async (url, options) => { redirectRequests++; assert.equal(options.redirect, 'manual'); return Response.redirect('https://untrusted.example/collect', 302); });
+await assert.rejects(() => refuseRedirects.bridge('123', 'state'), error => error instanceof ServiceError && error.status === 502);
+await assert.rejects(() => refuseRedirects.telegram('getMe'), error => error instanceof ServiceError && error.status === 502);
+assert.equal(redirectRequests, 2, 'Redirects must never forward credentials to another destination');
 console.log('PASS strict configuration, credential-free paused bootstrap, graceful idle stop, separated credentials, exact Site origin and sanitized errors');
 
 const state = {
