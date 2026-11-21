@@ -5,6 +5,7 @@
 ## Руководства
 
 - [Установка, запуск и размещение](docs/INSTALL_RU.md)
+- [Полная пошаговая инструкция запуска из GitHub](docs/START_FROM_GITHUB_RU.md)
 - [Подключение и использование Telegram-кабинета](docs/TELEGRAM_RU.md)
 - [Бесплатное размещение бота на Cloudflare Workers](bot/CLOUDFLARE_RU.md)
 - [Руководство участника](docs/USER_GUIDE_RU.md)
