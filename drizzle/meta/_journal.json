@@ -54,7 +54,14 @@
     {
       "idx": 7,
       "version": "6",
-      "when": 1795272000000,
+      "when": 1795272600000,
+      "tag": "0007_local_auth",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1795272600001,
       "tag": "0008_d1_prize_image_blobs",
       "breakpoints": true
     }
