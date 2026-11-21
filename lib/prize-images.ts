@@ -1,11 +1,10 @@
-import { env } from 'cloudflare:workers';
 import { AppError, getAdministrativeContext, getAuthenticatedContext } from './event-service';
 
-export const MAX_PRIZE_IMAGE_BYTES=5*1024*1024;
+export const MAX_PRIZE_IMAGE_BYTES=1_500_000;
 const MAX_MULTIPART_BYTES=MAX_PRIZE_IMAGE_BYTES+64*1024;
 const MAX_IMAGE_PIXELS=40_000_000;
 type ImageType='image/jpeg'|'image/png'|'image/webp';
-type ImageRecord={id:string;storage_key:string;content_type:ImageType;size:number;created_by:string;created_at:number};
+type ImageRecord={id:string;storage_key:string;content_type:ImageType;size:number;created_by:string;created_at:number;image_data:ArrayBuffer|Uint8Array|null};
 const extensions:Record<ImageType,string>={'image/jpeg':'jpg','image/png':'png','image/webp':'webp'};
 const uuidPattern=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ascii=(bytes:Uint8Array,start:number,size:number)=>String.fromCharCode(...bytes.subarray(start,start+size));
@@ -87,11 +86,11 @@ function detectImageType(bytes:Uint8Array):ImageType {
 async function readMultipartBounded(request:Request):Promise<FormData> {
   if(!request.headers.get('content-type')?.toLowerCase().startsWith('multipart/form-data;'))throw new AppError('Ожидается загрузка файла через форму.',415);
   const declared=request.headers.get('content-length');
-  if(declared&&Number(declared)>MAX_MULTIPART_BYTES)throw new AppError('Размер изображения не должен превышать 5 МиБ.',413);
+  if(declared&&Number(declared)>MAX_MULTIPART_BYTES)throw new AppError('Размер изображения не должен превышать 1 500 000 байт.',413);
   const reader=request.body?.getReader();if(!reader)throw new AppError('Добавьте файл изображения.');
   const chunks:Uint8Array[]=[];let size=0;
   try {
-    while(true){const chunk=await reader.read();if(chunk.done)break;size+=chunk.value.byteLength;if(size>MAX_MULTIPART_BYTES){await reader.cancel();throw new AppError('Размер изображения не должен превышать 5 МиБ.',413);}chunks.push(chunk.value);}
+    while(true){const chunk=await reader.read();if(chunk.done)break;size+=chunk.value.byteLength;if(size>MAX_MULTIPART_BYTES){await reader.cancel();throw new AppError('Размер изображения не должен превышать 1 500 000 байт.',413);}chunks.push(chunk.value);}
   }finally{reader.releaseLock();}
   const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}
   try{return await new Request(request.url,{method:'POST',headers:{'Content-Type':request.headers.get('content-type')!},body:bytes}).formData();}
@@ -102,22 +101,18 @@ export async function uploadPrizeImage(request:Request) {
   const ctx=await getAdministrativeContext();
   const origin=request.headers.get('origin');
   if(origin&&origin!==new URL(request.url).origin)throw new AppError('Загрузка с другого сайта запрещена.',403);
-  const bucket=env.BUCKET;if(!bucket)throw new AppError('Хранилище изображений ещё не подключено.',503);
   const form=await readMultipartBounded(request);
   const files=form.getAll('file');
   if(files.length!==1||typeof files[0]==='string'||[...form.keys()].some(key=>key!=='file'))throw new AppError('Добавьте один файл изображения.');
   const file=files[0];
   if(file.size<1)throw new AppError('Выбран пустой файл.');
-  if(file.size>MAX_PRIZE_IMAGE_BYTES)throw new AppError('Размер изображения не должен превышать 5 МиБ.',413);
+  if(file.size>MAX_PRIZE_IMAGE_BYTES)throw new AppError('Размер изображения не должен превышать 1 500 000 байт.',413);
   const bytes=new Uint8Array(await file.arrayBuffer()),contentType=detectImageType(bytes);
   const declaredType=file.type.toLowerCase().split(';')[0].trim();
   if(declaredType&&declaredType!=='application/octet-stream'&&declaredType!==contentType)throw new AppError('Тип файла не соответствует содержимому. Выберите JPEG, PNG или WebP.');
-  const imageId=crypto.randomUUID(),storageKey=`prize-images/${imageId}.${extensions[contentType]}`;
+  const imageId=crypto.randomUUID(),storageKey=`d1:${imageId}`;
   try {
-    await bucket.put(storageKey,bytes,{httpMetadata:{contentType},customMetadata:{imageId}});
-    try {
-      await ctx.db.prepare('INSERT INTO prize_images (id,storage_key,content_type,size,created_by,created_at) VALUES (?,?,?,?,?,?)').bind(imageId,storageKey,contentType,bytes.byteLength,ctx.id,Date.now()).run();
-    }catch(error){try{await bucket.delete(storageKey);}catch{/* A failed cleanup can be retried operationally; never expose object internals. */}throw error;}
+    await ctx.db.prepare('INSERT INTO prize_images (id,storage_key,content_type,size,created_by,created_at,image_data) VALUES (?,?,?,?,?,?,?)').bind(imageId,storageKey,contentType,bytes.byteLength,ctx.id,Date.now(),bytes).run();
   }catch{throw new AppError('Не удалось сохранить изображение. Попробуйте ещё раз.',503);}
   return {imageId,imageUrl:`/api/prize-images/${imageId}`,contentType,size:bytes.byteLength};
 }
@@ -125,11 +120,12 @@ export async function uploadPrizeImage(request:Request) {
 export async function readPrizeImage(imageId:string):Promise<Response> {
   const ctx=await getAuthenticatedContext();
   if(!uuidPattern.test(imageId))throw new AppError('Изображение не найдено.',404);
-  const record=await ctx.db.prepare('SELECT id,storage_key,content_type,size,created_by,created_at FROM prize_images WHERE id=?').bind(imageId).first<ImageRecord>();
+  const record=await ctx.db.prepare('SELECT id,storage_key,content_type,size,created_by,created_at,image_data FROM prize_images WHERE id=?').bind(imageId).first<ImageRecord>();
   if(!record||!extensions[record.content_type])throw new AppError('Изображение не найдено.',404);
-  const bucket=env.BUCKET;if(!bucket)throw new AppError('Хранилище изображений ещё не подключено.',503);
-  const object=await bucket.get(record.storage_key);if(!object)throw new AppError('Изображение не найдено.',404);
-  return new Response(object.body,{headers:{
+  const raw=record.image_data;
+  const bytes=raw instanceof ArrayBuffer?new Uint8Array(raw):raw instanceof Uint8Array?raw:null;
+  if(!bytes||bytes.byteLength!==record.size)throw new AppError('Изображение не найдено.',404);
+  return new Response(bytes,{headers:{
     'Content-Type':record.content_type,
     'Content-Length':String(record.size),
     'X-Content-Type-Options':'nosniff',

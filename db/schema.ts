@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, uniqueIndex, index, check } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, blob, uniqueIndex, index, check } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 export const appMeta = sqliteTable('app_meta', { key: text('key').primaryKey(), value: text('value').notNull() });
@@ -17,7 +17,7 @@ export const authSessions = sqliteTable('auth_sessions', {
 }, t => [index('auth_sessions_user').on(t.userId), index('auth_sessions_expiry').on(t.expiresAt)]);
 export const prizeImages = sqliteTable('prize_images', {
   id: text('id').primaryKey(), storageKey: text('storage_key').notNull().unique(), contentType: text('content_type').notNull(),
-  size: integer('size').notNull(), createdBy: text('created_by').notNull().references(() => users.id), createdAt: integer('created_at').notNull(),
+  size: integer('size').notNull(), imageData: blob('image_data'), createdBy: text('created_by').notNull().references(() => users.id), createdAt: integer('created_at').notNull(),
 }, t => [index('prize_images_creator').on(t.createdBy,t.createdAt)]);
 export const events = sqliteTable('events', {
   id: text('id').primaryKey(), title: text('title').notNull(), subtitle: text('subtitle').notNull(),
