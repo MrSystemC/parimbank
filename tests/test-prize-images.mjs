@@ -86,6 +86,6 @@ await rejectStatus(()=>readPrizeImage(crypto.randomUUID()),404);
 const missingObject=database.prepare('SELECT id FROM prize_images LIMIT 1').get();
 database.prepare('UPDATE prize_images SET image_data=NULL WHERE id=?').run(missingObject.id);
 await rejectStatus(()=>readPrizeImage(missingObject.id),404);
-console.log('PASS failed-write compensation, safe storage errors, missing object/record responses and read configuration errors');
+console.log('PASS failed-write handling, safe storage errors and missing image data rejection');
 console.log('Prize image integration checks passed.');
 database.close();
