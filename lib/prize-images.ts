@@ -86,7 +86,7 @@ function detectImageType(bytes:Uint8Array):ImageType {
 async function readMultipartBounded(request:Request):Promise<FormData> {
   if(!request.headers.get('content-type')?.toLowerCase().startsWith('multipart/form-data;'))throw new AppError('Ожидается загрузка файла через форму.',415);
   const declared=request.headers.get('content-length');
-  if(declared&&Number(declared)>MAX_MULTIPART_BYTES)throw new AppError('Размер изображения не должен превышать 5 МиБ.',413);
+  if(declared&&Number(declared)>MAX_MULTIPART_BYTES)throw new AppError('Размер изображения не должен превышать 1 500 000 байт.',413);
   const reader=request.body?.getReader();if(!reader)throw new AppError('Добавьте файл изображения.');
   const chunks:Uint8Array[]=[];let size=0;
   try {
