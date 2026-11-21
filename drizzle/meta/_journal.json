@@ -50,6 +50,13 @@
       "when": 1794221522862,
       "tag": "0006_fearless_tyrannus",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1795272000000,
+      "tag": "0008_d1_prize_image_blobs",
+      "breakpoints": true
     }
   ]
 }
