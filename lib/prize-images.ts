@@ -90,7 +90,7 @@ async function readMultipartBounded(request:Request):Promise<FormData> {
   const reader=request.body?.getReader();if(!reader)throw new AppError('Добавьте файл изображения.');
   const chunks:Uint8Array[]=[];let size=0;
   try {
-    while(true){const chunk=await reader.read();if(chunk.done)break;size+=chunk.value.byteLength;if(size>MAX_MULTIPART_BYTES){await reader.cancel();throw new AppError('Размер изображения не должен превышать 5 МиБ.',413);}chunks.push(chunk.value);}
+    while(true){const chunk=await reader.read();if(chunk.done)break;size+=chunk.value.byteLength;if(size>MAX_MULTIPART_BYTES){await reader.cancel();throw new AppError('Размер изображения не должен превышать 1 500 000 байт.',413);}chunks.push(chunk.value);}
   }finally{reader.releaseLock();}
   const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}
   try{return await new Request(request.url,{method:'POST',headers:{'Content-Type':request.headers.get('content-type')!},body:bytes}).formData();}
@@ -106,7 +106,7 @@ export async function uploadPrizeImage(request:Request) {
   if(files.length!==1||typeof files[0]==='string'||[...form.keys()].some(key=>key!=='file'))throw new AppError('Добавьте один файл изображения.');
   const file=files[0];
   if(file.size<1)throw new AppError('Выбран пустой файл.');
-  if(file.size>MAX_PRIZE_IMAGE_BYTES)throw new AppError('Размер изображения не должен превышать 5 МиБ.',413);
+  if(file.size>MAX_PRIZE_IMAGE_BYTES)throw new AppError('Размер изображения не должен превышать 1 500 000 байт.',413);
   const bytes=new Uint8Array(await file.arrayBuffer()),contentType=detectImageType(bytes);
   const declaredType=file.type.toLowerCase().split(';')[0].trim();
   if(declaredType&&declaredType!=='application/octet-stream'&&declaredType!==contentType)throw new AppError('Тип файла не соответствует содержимому. Выберите JPEG, PNG или WebP.');
