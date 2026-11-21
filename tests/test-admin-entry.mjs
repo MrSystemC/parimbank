@@ -106,13 +106,13 @@ assert.equal(page.type,'main','A nonstaff visitor must receive the denied view, 
 const nodes=[];function visit(node){if(!node||typeof node!=='object')return;if(Array.isArray(node)){node.forEach(visit);return;}nodes.push(node);visit(node.props?.children);}
 visit(page);
 assert(!nodes.some(node=>node.type===Home),'Restricted application state must not serialize into a nonstaff Home component');
-assert(nodes.some(node=>node.type==='a'&&node.props.href==='/signout-with-chatgpt?return_to=%2Fadmin'&&node.props.target==='_top'),'Denied view must provide top-level account-switch access returning to administration');
+assert(nodes.some(node=>node.type==='a'&&node.props.href==='/api/auth/logout?return_to=%2Fadmin'&&node.props.target==='_top'),'Denied view must provide top-level account-switch access returning to administration');
 page=await route.default({searchParams:Promise.resolve({tab:'guide'})});
 assert.equal(page.type,'main');nodes.length=0;visit(page);
-assert(nodes.some(node=>node.type==='a'&&node.props.href==='/signout-with-chatgpt?return_to=%2Fadmin%3Ftab%3Dguide'&&node.props.target==='_top'),'Account switching must preserve the whitelisted guide tab');
+assert(nodes.some(node=>node.type==='a'&&node.props.href==='/api/auth/logout?return_to=%2Fadmin%3Ftab%3Dguide'&&node.props.target==='_top'),'Account switching must preserve the whitelisted guide tab');
 page=await route.default({searchParams:Promise.resolve({tab:'guide&return_to=https://outside.invalid'})});
 nodes.length=0;visit(page);
-assert(nodes.some(node=>node.type==='a'&&node.props.href==='/signout-with-chatgpt?return_to=%2Fadmin'),'Invalid tabs must be dropped from account-switch return URLs');
+assert(nodes.some(node=>node.type==='a'&&node.props.href==='/api/auth/logout?return_to=%2Fadmin'),'Invalid tabs must be dropped from account-switch return URLs');
 enterAs('owner','owner@example.test');
 page=await route.default();
 assert.equal(page.type,Home);assert.equal(page.props.initialPage,'admin');assert.equal(page.props.initialData.user.role,'owner');

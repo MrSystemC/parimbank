@@ -1,4 +1,6 @@
 "use client";
+/* Uploaded and preview images use direct object URLs and private API paths. */
+/* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { CheckCircle2, ImagePlus, Image as ImageIcon, LoaderCircle, LockKeyhole, RefreshCw, Trash2, Upload, X } from 'lucide-react';
@@ -39,6 +41,9 @@ export function PrizeFields({defaultPrizeType='Товар',defaultPrizeName='',d
  useEffect(()=>{readyCallback.current?.(state==='idle')},[state]);
  useEffect(()=>{const form=containerRef.current?.closest('form');const block=(event:Event)=>{if(stateRef.current==='idle')return;event.preventDefault();event.stopImmediatePropagation();setError(stateRef.current==='uploading'?'Дождитесь завершения загрузки изображения.':'Повторите загрузку или отмените выбранное изображение перед сохранением.');chooseRef.current?.focus()};form?.addEventListener('submit',block,true);return()=>form?.removeEventListener('submit',block,true)},[]);
  useEffect(()=>()=>{generation.current++;requestRef.current?.abort();if(previewRef.current)URL.revokeObjectURL(previewRef.current)},[]);
+ // When editing a sold/archived event, restore the immutable prize identity.
+ // cancelSelected deliberately stays local to the component and is invoked only when the lock changes.
+ // eslint-disable-next-line react-hooks/exhaustive-deps
  useEffect(()=>{if(!identityLocked)return;cancelSelected();setImage({imageId:defaultImageId||'',imageUrl:defaultImageUrl||''})},[identityLocked,defaultImageId,defaultImageUrl]);
 
  function setUploadState(next:UploadState){stateRef.current=next;setState(next)}
@@ -62,7 +67,7 @@ export function PrizeFields({defaultPrizeType='Товар',defaultPrizeName='',d
   {identityLocked&&<><input type="hidden" name="prizeType" value={defaultPrizeType}/><input type="hidden" name="prizeName" value={defaultPrizeName}/></>}
   <input type="hidden" name="imageId" value={identityLocked?(defaultImageId||''):image.imageId}/><input type="hidden" name="imageUploadState" value={state}/>
   <div className={`pf-upload ${state==='error'?'has-error':''}`}>
-   <div className="pf-preview">{preview?<img src={preview} alt="Предпросмотр изображения приза"/>:<div className="pf-image-empty"><ImageIcon size={32}/><span>Фото приза</span></div>}{state==='uploading'&&<span className="pf-upload-overlay"><LoaderCircle size={25} className="spin"/><span>Загружаем…</span></span>}</div>
+  <div className="pf-preview">{preview?<img src={preview} alt="Предпросмотр изображения приза"/>:<div className="pf-image-empty"><ImageIcon size={32}/><span>Фото приза</span></div>}{state==='uploading'&&<span className="pf-upload-overlay"><LoaderCircle size={25} className="spin"/><span>Загружаем…</span></span>}</div>
    <div className="pf-upload-info"><b>{selectedFile?selectedFile.name:image.imageId?'Изображение загружено':image.imageUrl?'Текущее изображение':identityLocked?'Изображение не задано':'Добавьте изображение с устройства'}</b><p id={helpId}>{identityLocked?'Фото приза зафиксировано':selectedFile?sizeLabel(selectedFile.size):'JPEG, PNG или WebP · до 5 МБ'}</p>
     <input id={inputId} ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="pf-file-input" disabled={disabled||identityLocked} tabIndex={-1} aria-label="Выбрать изображение приза" aria-describedby={`${helpId}${error?' '+errorId:''}`} onChange={event=>{const file=event.currentTarget.files?.[0];if(file)void upload(file)}}/>
     {!identityLocked&&<div className="pf-upload-actions"><button ref={chooseRef} type="button" className="pf-choose" disabled={disabled||identityLocked} onClick={()=>fileRef.current?.click()}><Upload size={15}/>{preview||selectedFile?'Выбрать другое':'Выбрать файл'}</button>{state==='error'&&selectedFile&&!fileError(selectedFile)&&<button type="button" className="pf-action" disabled={disabled||identityLocked} onClick={()=>void upload(selectedFile)}><RefreshCw size={14}/>Повторить</button>}{selectedFile?<button type="button" className="pf-action" disabled={disabled||identityLocked} onClick={cancelSelected}><X size={14}/>{image.imageUrl?'Отменить замену':'Отменить выбор'}</button>:image.imageUrl&&<button type="button" className="pf-action pf-remove" disabled={disabled||identityLocked} onClick={removeImage}><Trash2 size={14}/>Удалить</button>}</div>}

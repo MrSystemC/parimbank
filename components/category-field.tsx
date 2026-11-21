@@ -14,9 +14,12 @@ export function CategoryField({categories,act,defaultValue='',disabled=false,cla
  const options=Array.from(new Set([...categories,...(defaultValue?[defaultValue]:[])]));
  const [selected,setSelected]=useState(defaultValue||categories[0]||''),[adding,setAdding]=useState(false),[draft,setDraft]=useState(''),[saving,setSaving]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  const host=useRef<HTMLDivElement>(null),nameInput=useRef<HTMLInputElement>(null),selectInput=useRef<HTMLSelectElement>(null),pendingName=useRef<string|null>(null),latestCategories=useRef(categories),editingRef=useRef(false),inFlight=useRef(false),mounted=useRef(true);
- latestCategories.current=categories;editingRef.current=adding||saving;
+ // These refs are intentionally kept current for async form guards.
+ latestCategories.current=categories;
+ editingRef.current=adding||saving;
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false}},[]);
  function finish(name:string,created:boolean){setSelected(name);setAdding(false);setDraft('');setError('');setNotice(created?'Категория сохранена и выбрана.':'Выбрана существующая категория.');pendingName.current=null;selectInput.current?.focus()}
+ // Select the first available category after the server list arrives.
  useEffect(()=>{if(!selected&&categories.length)setSelected(categories[0]);const requested=pendingName.current;if(requested){const canonical=categories.find(name=>normalize(name)===normalize(requested));if(canonical)finish(canonical,true)}},[categories,selected]);
  useEffect(()=>{const form=host.current?.closest('form');const guard=(event:Event)=>{if(!editingRef.current)return;event.preventDefault();event.stopImmediatePropagation();setError(saving?'Дождитесь сохранения категории.':'Добавьте категорию или отмените её создание перед сохранением розыгрыша.');nameInput.current?.focus()};form?.addEventListener('submit',guard,true);return()=>form?.removeEventListener('submit',guard,true)},[saving]);
  useEffect(()=>{if(adding)nameInput.current?.focus()},[adding]);

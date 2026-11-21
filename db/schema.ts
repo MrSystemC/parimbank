@@ -7,6 +7,14 @@ export const users = sqliteTable('users', {
   role: text('role').notNull().default('user'), status: text('status').notNull().default('active'),
   isDemo: integer('is_demo').notNull().default(0), createdAt: integer('created_at').notNull(),
 }, t => [check('users_balance_nonnegative', sql`${t.balance} >= 0`)]);
+export const authCredentials = sqliteTable('auth_credentials', {
+  userId: text('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }), username: text('username').notNull(),
+  passwordHash: text('password_hash').notNull(), passwordSalt: text('password_salt').notNull(), createdAt: integer('created_at').notNull(), updatedAt: integer('updated_at').notNull(),
+}, t => [uniqueIndex('auth_credentials_username').on(t.username)]);
+export const authSessions = sqliteTable('auth_sessions', {
+  tokenHash: text('token_hash').primaryKey(), userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: integer('created_at').notNull(), lastSeenAt: integer('last_seen_at').notNull(), expiresAt: integer('expires_at').notNull(),
+}, t => [index('auth_sessions_user').on(t.userId), index('auth_sessions_expiry').on(t.expiresAt)]);
 export const prizeImages = sqliteTable('prize_images', {
   id: text('id').primaryKey(), storageKey: text('storage_key').notNull().unique(), contentType: text('content_type').notNull(),
   size: integer('size').notNull(), createdBy: text('created_by').notNull().references(() => users.id), createdAt: integer('created_at').notNull(),

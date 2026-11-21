@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { ArrowLeft, Check, ChevronRight, MapPin, Search, X } from 'lucide-react';
 import { ALL_REGION, DIRECTORY_META, REGIONS, getCities, normalizeLocationSearch } from '@/lib/regions';
 import './location-picker.css';
@@ -16,14 +16,11 @@ export function LocationPicker({ region, city = '', onSelect }: LocationPickerPr
   const [query, setQuery] = useState('');
   const normalized = normalizeLocationSearch(query);
   const regions = REGIONS.filter(item => normalizeLocationSearch(item).includes(normalized));
-  const cityMatches = useMemo(() => {
-    const scope = browseRegion ? [browseRegion] : REGIONS;
-    if (!browseRegion && !normalized) return [];
-    return scope.flatMap(item => getCities(item)
-      .filter(name => normalizeLocationSearch(name).includes(normalized))
-      .map(name => ({ region: item, city: name })))
-      .sort((a, b) => a.city.localeCompare(b.city, 'ru') || a.region.localeCompare(b.region, 'ru'));
-  }, [browseRegion, normalized]);
+  const cityScope = browseRegion ? [browseRegion] : REGIONS;
+  const cityMatches = !browseRegion && !normalized ? [] : cityScope.flatMap(item => getCities(item)
+    .filter(name => normalizeLocationSearch(name).includes(normalized))
+    .map(name => ({ region: item, city: name })))
+    .sort((a, b) => a.city.localeCompare(b.city, 'ru') || a.region.localeCompare(b.region, 'ru'));
 
   function openRegion(value: string) { setBrowseRegion(value); setQuery(''); }
   return <div className="location-picker">

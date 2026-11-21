@@ -140,7 +140,7 @@ export function MessagesCenter({ data, act, busy, admin = false, initialEventId 
       if (existing && combined.length === existing.messages.length && combined.every((message, index) => message.id === existing.messages[index].id && message.body === existing.messages[index].body)) return previous;
       return { ...previous, [selected.id]: { messages: combined, hasMore: existing?.hasMore ?? selected.hasEarlierMessages, nextCursor: existing ? existing.nextCursor : selected.historyCursor, error: existing?.error } };
     });
-  }, [selected?.id, selected?.messages]);
+  }, [selected, selected?.id, selected?.messages]);
 
   useLayoutEffect(() => {
     const anchor = scrollAnchor.current;
@@ -178,7 +178,7 @@ export function MessagesCenter({ data, act, busy, admin = false, initialEventId 
     if (readAttempt.current === key) return;
     readAttempt.current = key;
     void latestAct.current({ kind: "readThread", threadId: selected.id, readThrough: selected.updatedAt }).then(succeeded => setReadFailed(!succeeded));
-  }, [selected?.id, selected?.updatedAt, selected?.unreadCount, busy, composing, readRevision]);
+  }, [selected, selected?.id, selected?.updatedAt, selected?.unreadCount, busy, composing, readRevision]);
 
   useEffect(() => {
     const onVisibility = () => { if (!document.hidden) { readAttempt.current = ""; setReadRevision(value => value + 1); } };

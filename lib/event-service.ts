@@ -11,6 +11,8 @@ export class AppError extends Error {
 type Context = { db:D1Database; id:string; isAdmin:boolean; isOwner:boolean; role:UserRole; status:string; telegramLinkId?:string };
 const DEFAULT_SETTINGS:ProjectSettings={participationEnabled:true,coinRequestsEnabled:true,supportEnabled:true,announcement:'',supportResponseHours:24};
 const LIMITS={users:1000,threads:200,messagesPerThread:100,transactions:1000,audit:500,participants:10000};
+// D1 returns dynamic row objects. Field values are validated at each request boundary before use.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- D1 row shape is dynamic by design.
 type Row = Record<string, any>;
 const now = () => Date.now();
 const uid = () => crypto.randomUUID();
@@ -40,8 +42,7 @@ export function secureRandomInt(max:number):number {
 }
 
 async function context():Promise<Context> {
-  let identity=await getChatGPTUser();
-  if(!identity && import.meta.env.DEV) identity={userId:'preview-owner',email:'preview@local.invalid',fullName:'Тестовый участник',displayName:'Тестовый участник'};
+  const identity=await getChatGPTUser();
   if(!identity) throw new AppError('Для продолжения войдите в аккаунт.',401);
   const db=env.DB;
   if(!db) throw new AppError('Хранилище ещё не подключено. Попробуйте позже.',503);
@@ -72,7 +73,10 @@ async function context():Promise<Context> {
     ]);
   }
   const user=await db.prepare('SELECT role,status FROM users WHERE id=?').bind(identity.userId).first<Row>();
-  const isOwner=!!matchesOwner && owner?.value===identity.userId;
+  const localCredential=await db.prepare('SELECT user_id FROM auth_credentials WHERE user_id=?').bind(identity.userId).first<Row>();
+  // Local owners are bound to their credential record. Legacy provider identities still
+  // require the configured verified owner email while the migration is in progress.
+  const isOwner=localCredential ? user?.role==='owner' : (!!matchesOwner && owner?.value===identity.userId);
   const role:UserRole=isOwner?'owner':user?.role||'user';
   if(!await db.prepare("SELECT value FROM app_meta WHERE key='support_import_v1'").first()) {
     // Data backfill belongs in the service, never in immutable schema migrations.

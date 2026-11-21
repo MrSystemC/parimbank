@@ -1,6 +1,8 @@
 import { env } from 'cloudflare:workers';
 import { AppError, getAuthenticatedContext, getParticipantStateForTelegram, performParticipantActionForTelegram } from './event-service';
 
+// D1 returns dynamic row objects. Field values are validated at each request boundary before use.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- D1 row shape is dynamic by design.
 type Row = Record<string, any>;
 type SiteContext = Awaited<ReturnType<typeof getAuthenticatedContext>>;
 const FIVE_MINUTES=5*60_000;

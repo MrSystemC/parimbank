@@ -4,6 +4,8 @@ import type { AppState } from './event-types';
 export type AdminRecordsKind = 'users' | 'requests' | 'ledger' | 'audit' | 'participants';
 export type AdminRecord = AppState['adminUsers'][number] | AppState['requests'][number] | AppState['adminTransactions'][number] | AppState['auditLog'][number] | AppState['adminParticipants'][number];
 export type AdminRecordsPage<T = AdminRecord> = { items: T[]; total: number; page: number; pageSize: number };
+// D1 returns dynamic row objects. Field values are validated at each request boundary before use.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- D1 row shape is dynamic by design.
 type Row = Record<string, any>;
 
 /** SQLite's lower() only folds ASCII. Fold Cyrillic explicitly for Russian search. */
