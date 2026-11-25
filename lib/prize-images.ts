@@ -125,7 +125,9 @@ export async function readPrizeImage(imageId:string):Promise<Response> {
   const raw=record.image_data;
   const bytes=raw instanceof ArrayBuffer?new Uint8Array(raw):raw instanceof Uint8Array?raw:null;
   if(!bytes||bytes.byteLength!==record.size)throw new AppError('Изображение не найдено.',404);
-  return new Response(bytes,{headers:{
+  const responseBody = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(responseBody).set(bytes);
+  return new Response(responseBody,{headers:{
     'Content-Type':record.content_type,
     'Content-Length':String(record.size),
     'X-Content-Type-Options':'nosniff',
